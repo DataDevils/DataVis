@@ -1,0 +1,130 @@
+---
+title: "Plotting Water Data"
+author: "John Fay"
+date: "9/17/2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Plotting with ggplot
+
+## Import packages
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+```
+
+
+## Read in the data
+```{r Read in the data}
+water.data <- readxl::read_excel('./data/State_Data_Formatted.xlsx','WaterUse')
+str(water.data)
+
+popn.data <- readxl::read_excel('./data/State_Data_Formatted.xlsx','Population')
+str(popn.data)
+```
+
+```{r fix Withdrawal data type}
+water.data$Withdrawal_MGD <- as.double(water.data$Withdrawal_MGD)
+str(water.data)
+```
+
+
+## Join the tables
+```{r}
+all.data <- inner_join(water.data,
+                       popn.data,
+                       by=c("State"= "STATE"))
+```
+
+
+## Construct the visualization
+
+### Basic plot
+```{r Basic plot}
+g <- ggplot(water.data) 
+g + geom_col(aes(x=Category, y=Withdrawal_MGD))
+```
+
+### Aesthetics: _fill_
+```{r Basic plot with fill aes}
+g <- ggplot(all.data) 
+g + geom_col(aes(x=Category, 
+                 y=Withdrawal_MGD,
+                 fill=Source))
+```
+
+
+### Facets: _facet_grid_
+```{r Facet plot}
+ggplot(all.data) +
+ geom_col(aes(x=Category, 
+                y=Withdrawal_MGD,
+                fill=Source)) +
+ facet_grid(facets=.~Type)
+```
+
+
+### Labels and coordinate systems
+```{r Lables and rotated}
+ggplot(data=all.data) + 
+ geom_col(aes(x=Category,
+              y=Withdrawal_MGD,
+              fill=Source)) + 
+ facet_grid(facets=.~Type) +
+ ggtitle('Per capita water withdrawals') + 
+ ylab("Per capita water withdrawals (MGD/person)") +
+ coord_flip()
+```
+
+### Filtering and sorting
+```{r Filter to remove "Total" and keep only "Fresh"}
+subset.data <-  filter(all.data, Category != "Total" & Type == "Fresh")
+subset.data$Category = as.factor(subset.data$Category)
+str(subset.data)
+```
+
+```{r Add a sorted factor list}
+#Convert the Category variable to a factor
+subset.data$Category = as.factor(subset.data$Category)
+#Sort base onm this category
+subset.data$Category <-  fct_reorder(.f=subset.data$Category,       #Sort the Category values
+                                     .x=subset.data$Withdrawal_MGD, #...based on values in the Withdrawal_MGD column
+                                     .fun=sum)                      #...using their grouped sums
+#Reverse the sort order
+subset.data$Category <- fct_rev(subset.data$Category)
+```
+
+
+```{r Plot the sorted data}
+ggplot(data=subset.data) + 
+ geom_col(aes(x=Category,
+              y=Withdrawal_MGD,
+              fill=Source)) + 
+ facet_grid(facets=.~Type) +
+ ggtitle('Per capita water withdrawals') + 
+ ylab("Per capita water withdrawals (MGD/person)") +
+ coord_flip()
+```
+
+## Export the image
+```{r Export}
+#Create the plot
+p <- ggplot(data=subset.data) + 
+       geom_col(aes(x=Category,
+                    y=Withdrawal_MGD,
+                    fill=Source)) + 
+       facet_grid(facets=.~Type) +
+       ggtitle('Per capita water withdrawals') + 
+       ylab("Per capita water withdrawals (MGD/person)") +
+       coord_flip()
+
+#Save the plot
+ggsave(filename="PlotFrom_R.png",plot=p,width=10,heigh=3)
+```
+
